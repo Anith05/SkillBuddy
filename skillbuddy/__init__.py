@@ -1,0 +1,1 @@
+"""SkillBuddy core package."""

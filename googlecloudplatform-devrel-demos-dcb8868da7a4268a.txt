@@ -1,0 +1,140 @@
+Directory structure:
+└── gemini-3-pro-agent-demo/
+    ├── README.md
+    └── my_agent/
+        ├── __init__.py
+        └── agent.py
+
+================================================
+FILE: ai-ml/agent-labs/gemini-3-pro-agent-demo/README.md
+================================================
+ADK Agent with Google Search & Gemini 3
+
+This project demonstrates how to build and run an AI agent using the Google Agent Development Kit (ADK), powered by the Gemini 3 model and equipped with the Google Search Tool.
+
+Prerequisites
+
+1. uv (An extremely fast Python package installer and resolver)
+
+2. A [Google Cloud Project](https://developers.google.com/workspace/guides/create-project?utm_campaign=CDR_0xf9030db1_default_b462529980&utm_medium=external&utm_source=blog) with the Gemini API enabled
+
+3. A valid [GOOGLE_API_KEY](https://aistudio.google.com)
+
+Getting Started
+
+Follow these steps to set up your environment, create the agent, and run the web interface.
+
+1. Initialize the Project
+
+Initialize a new Python project using uv:
+
+`uv init`
+
+
+2. Install Dependencies
+
+Add the necessary Google libraries for ADK and GenAI:
+
+`uv add google-adk`
+`uv add google-genai`
+
+
+3. Configure Environment
+
+Set your Google API key as an environment variable. Replace "YOUR_API_KEY" with your key.
+
+`export GOOGLE_API_KEY="YOUR_API_KEY"`
+
+
+4. Activate Virtual Environment
+
+Activate the virtual environment created by uv:
+
+`source .venv/bin/activate`
+
+
+5. Create the Agent
+
+Use the ADK CLI to generate a new agent scaffold named my_Agent:
+
+`adk create my_Agent`
+
+
+Note during creation: When prompted, ensure you select Gemini 3 as the model for the root agent to leverage the latest capabilities.
+
+6. Run the Agent
+
+You can run the agent in the terminal to test basic functionality:
+
+`adk run my_agent`
+
+
+7. Launch Web Interface
+
+To interact with your agent via a web UI, start the web server on port 8000:
+
+`adk web --port 8000`
+
+
+Open your browser and navigate to http://localhost:8000 to chat with your agent.
+
+
+================================================
+FILE: ai-ml/agent-labs/gemini-3-pro-agent-demo/my_agent/__init__.py
+================================================
+from . import agent
+
+
+
+================================================
+FILE: ai-ml/agent-labs/gemini-3-pro-agent-demo/my_agent/agent.py
+================================================
+from google.adk.agents import Agent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.adk.tools import google_search
+from google.genai import types
+import asyncio
+
+# CONFIGURATION
+APP_NAME = "simple_search_agent"
+USER_ID = "user_default"
+SESSION_ID = "session_01"
+
+# AGENT DEFINITION
+root_agent = Agent(
+    name="search_agent",
+    model="gemini-3-pro-preview",
+    description="A helpful assistant that can search Google.",
+    instruction="""
+    You are a helpful assistant with access to Google Search.
+    
+    If the user asks a question that requires current information or facts, use the 'google_search' tool.
+    Always cite your sources implicitly by providing the answer clearly based on the search results.
+    """,
+    # This is the only tool enabled
+    tools=[google_search]
+)
+
+# Session and Runner
+async def setup_session_and_runner():
+    session_service = InMemorySessionService()
+    session = await session_service.create_session(app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
+    runner = Runner(agent=root_agent, app_name=APP_NAME, session_service=session_service)
+    return session, runner
+
+# Agent Interaction
+async def call_agent_async(query):
+    content = types.Content(role='user', parts=[types.Part(text=query)])
+    session, runner = await setup_session_and_runner()
+    events = runner.run_async(user_id=USER_ID, session_id=SESSION_ID, new_message=content)
+
+    async for event in events:
+        if event.is_final_response():
+            final_response = event.content.parts[0].text
+            print("Agent Response: ", final_response)
+
+if __name__ == "__main__":
+    asyncio.run(call_agent_async("what's the latest ai news?"))
+
+
