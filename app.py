@@ -21,6 +21,49 @@ from skillbuddy.utils.pdf_loader import extract_text_from_pdf
 
 
 st.set_page_config(page_title="SkillBuddy", layout="wide")
+
+# Custom CSS for cleaner UI with reduced padding
+st.markdown("""
+<style>
+    /* Reduce padding in containers */
+    .stExpander > div:first-child {
+        padding: 0.5rem 1rem;
+    }
+    .stExpander > div:last-child {
+        padding: 0.5rem 1rem;
+    }
+    /* Clean list styling */
+    .clean-list {
+        margin: 0;
+        padding-left: 1.2rem;
+    }
+    .clean-list li {
+        margin-bottom: 0.3rem;
+        line-height: 1.4;
+    }
+    /* Card styling - dark mode compatible */
+    .info-card {
+        background-color: rgba(100, 100, 100, 0.1);
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        margin-bottom: 0.5rem;
+        border-left: 3px solid #4CAF50;
+    }
+    .info-card.warning {
+        border-left-color: #ff9800;
+    }
+    .info-card.error {
+        border-left-color: #f44336;
+    }
+    /* Compact text display */
+    .compact-text {
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin: 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🎯 SkillBuddy – Interview in Minutes")
 
 
@@ -136,6 +179,22 @@ with st.expander("Upload & Analyze Resume", expanded=True):
 
 profile: Optional[ResumeProfile] = st.session_state.get("resume_profile")
 
+
+def _render_bullet_list(items: list, empty_msg: str = "None identified") -> None:
+    """Render a list as Streamlit bullet points."""
+    if not items:
+        st.markdown(f"*{empty_msg}*")
+        return
+    for item in items:
+        # Standardize: capitalize first letter, ensure period at end
+        item = str(item).strip()
+        if item:
+            item = item[0].upper() + item[1:] if len(item) > 1 else item.upper()
+            if not item.endswith(('.', '!', '?')):
+                item += '.'
+        st.markdown(f"• {item}")
+
+
 # Display resume analysis
 if profile and profile.analysis:
     analysis = profile.analysis
@@ -146,53 +205,55 @@ if profile and profile.analysis:
         rating_color = "🟢" if analysis.rating >= 7 else "🟡" if analysis.rating >= 5 else "🔴"
         st.markdown(f"# {rating_color} {analysis.rating}/10")
     with col2:
-        st.text_area("Rating Justification", value=analysis.rating_justification, height=80, disabled=True)
+        st.info(analysis.rating_justification)
     
     st.markdown("---")
     
+    # Strengths & Weaknesses in collapsible cards
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("### ✅ Strengths")
-        strengths_text = "\n".join([f"• {s}" for s in analysis.strengths]) if analysis.strengths else "No strengths identified"
-        st.text_area("Strengths", value=strengths_text, height=150, disabled=True, label_visibility="collapsed")
+        with st.expander("✅ Strengths", expanded=True):
+            _render_bullet_list(analysis.strengths, "No strengths identified")
     
     with col2:
-        st.markdown("### ⚠️ Weaknesses")
-        weaknesses_text = "\n".join([f"• {w}" for w in analysis.weaknesses]) if analysis.weaknesses else "No weaknesses identified"
-        st.text_area("Weaknesses", value=weaknesses_text, height=150, disabled=True, label_visibility="collapsed")
+        with st.expander("⚠️ Weaknesses", expanded=True):
+            _render_bullet_list(analysis.weaknesses, "No weaknesses identified")
     
-    st.markdown("---")
-    
+    # Mistakes & Suggestions in collapsible cards
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("### ❌ Mistakes Found")
-        mistakes_text = "\n".join([f"• {m}" for m in analysis.mistakes]) if analysis.mistakes else "No mistakes found"
-        st.text_area("Mistakes", value=mistakes_text, height=150, disabled=True, label_visibility="collapsed")
+        with st.expander("❌ Mistakes Found", expanded=True):
+            _render_bullet_list(analysis.mistakes, "No mistakes found")
     
     with col2:
-        st.markdown("### 💡 Suggestions")
-        suggestions_text = "\n".join([f"• {s}" for s in analysis.suggestions]) if analysis.suggestions else "No suggestions"
-        st.text_area("Suggestions", value=suggestions_text, height=150, disabled=True, label_visibility="collapsed")
+        with st.expander("💡 Suggestions", expanded=True):
+            _render_bullet_list(analysis.suggestions, "No suggestions")
     
     st.markdown("---")
     
-    st.markdown("### 🛠️ Recommended Skills to Add")
-    skills_to_add = ", ".join(analysis.skills_to_add) if analysis.skills_to_add else "No additional skills recommended"
-    st.text_area("Skills to Add", value=skills_to_add, height=68, disabled=True, label_visibility="collapsed")
+    # Skills to Add - compact display
+    with st.expander("🛠️ Recommended Skills to Add", expanded=True):
+        if analysis.skills_to_add:
+            st.markdown(" • ".join(analysis.skills_to_add))
+        else:
+            st.markdown("*No additional skills recommended.*")
     
-    st.markdown("### 📝 Overall Summary")
-    st.text_area("Summary", value=analysis.overall_summary, height=120, disabled=True, label_visibility="collapsed")
+    # Overall Summary - compact card
+    with st.expander("📝 Overall Summary", expanded=True):
+        st.markdown(analysis.overall_summary)
     
     st.markdown("---")
     
+    # Rewritten Sections - all collapsible
     st.markdown("### ✨ Professionally Rewritten Sections")
     with st.expander("📋 Rewritten Summary"):
-        st.text_area("New Summary", value=analysis.rewritten.summary, height=100, disabled=True, label_visibility="collapsed")
+        st.markdown(analysis.rewritten.summary)
     with st.expander("🛠️ Rewritten Skills"):
-        st.text_area("New Skills", value=analysis.rewritten.skills, height=100, disabled=True, label_visibility="collapsed")
+        st.markdown(analysis.rewritten.skills)
     with st.expander("🚀 Rewritten Projects"):
         for i, proj in enumerate(analysis.rewritten.projects):
-            st.text_area(f"Project {i+1}", value=proj, height=80, disabled=True, key=f"rewritten_proj_{i}")
+            st.markdown(f"**Project {i+1}:**")
+            st.info(proj)
 
     # =====================
     # PROMPT FOR LIVE INTERVIEW
@@ -444,23 +505,22 @@ if profile and st.session_state.get("live_interview_started"):
             
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown("### 💪 Strengths in Answering")
-                for s in result.strengths_in_answering:
-                    st.write(f"• {s}")
+                with st.expander("💪 Strengths in Answering", expanded=True):
+                    _render_bullet_list(result.strengths_in_answering, "None identified")
             with col2:
-                st.markdown("### 🧠 Improvement Areas")
-                for i in result.improvement_areas:
-                    st.write(f"• {i}")
+                with st.expander("🧠 Improvement Areas", expanded=True):
+                    _render_bullet_list(result.improvement_areas, "None identified")
             
             st.markdown("---")
             
-            st.markdown("### 📍 Weak Points Identified")
-            weak_points = ", ".join(result.weak_points) if result.weak_points else "None identified"
-            st.text_area("Weak Points", value=weak_points, height=68, disabled=True, label_visibility="collapsed")
+            with st.expander("📍 Weak Points Identified", expanded=True):
+                if result.weak_points:
+                    st.markdown(" • ".join(result.weak_points))
+                else:
+                    st.markdown("*None identified.*")
             
-            st.markdown("### 📘 Suggestions to Improve")
-            suggestions = "\n".join([f"• {s}" for s in result.suggestions]) if result.suggestions else "No suggestions"
-            st.text_area("Suggestions", value=suggestions, height=120, disabled=True, label_visibility="collapsed")
+            with st.expander("📘 Suggestions to Improve", expanded=True):
+                _render_bullet_list(result.suggestions, "No suggestions")
             
             # Ask about quiz
             st.markdown("---")
@@ -540,12 +600,10 @@ if profile and st.session_state.get("use_standard_mode") and not st.session_stat
                     col1, col2 = st.columns(2)
                     with col1:
                         st.markdown("**✅ Strengths:**")
-                        for s in eval_item.strengths:
-                            st.write(f"• {s}")
+                        _render_bullet_list(eval_item.strengths, "None")
                     with col2:
                         st.markdown("**📈 Improvements:**")
-                        for imp in eval_item.improvements:
-                            st.write(f"• {imp}")
+                        _render_bullet_list(eval_item.improvements, "None")
             
             # Soft skills
             st.markdown("#### 🗣️ Soft Skills")
@@ -661,21 +719,24 @@ if profile and (st.session_state.get("show_job_matcher") or st.session_state.get
                     _handle_api_error(exc, "Failed to get recommendations")
     
     if recommendations:
-        st.markdown(f"**🌐 Domain Fit:** {recommendations.domain_fit}")
+        st.success(f"🌐 **Domain Fit:** {recommendations.domain_fit}")
         
-        st.markdown("### 🏢 Recommended Job Roles")
-        for role in recommendations.recommended_roles:
-            st.write(f"• {role}")
+        with st.expander("🏢 Recommended Job Roles", expanded=True):
+            for role in recommendations.recommended_roles:
+                st.markdown(f"• {role}")
         
-        st.markdown("### 🎯 Matching Company Types")
-        for company in recommendations.matching_companies:
-            with st.expander(f"**{company.company_type}**"):
-                st.write(f"**Why it matches:** {company.reason}")
-                st.write(f"**Examples:** {', '.join(company.example_companies)}")
+        with st.expander("🎯 Matching Company Types", expanded=True):
+            for company in recommendations.matching_companies:
+                st.markdown(f"**{company.company_type}**")
+                st.markdown(f"> **Why:** {company.reason}")
+                st.markdown(f"> **Examples:** {', '.join(company.example_companies)}")
+                st.markdown("")
         
-        st.markdown("### 📍 Keywords to Add for Better Matching")
-        keywords = ", ".join(recommendations.keywords_to_add) if recommendations.keywords_to_add else "None suggested"
-        st.text_area("Keywords", value=keywords, height=68, disabled=True, label_visibility="collapsed")
+        with st.expander("📍 Keywords to Add for Better Matching", expanded=True):
+            if recommendations.keywords_to_add:
+                st.markdown(" • ".join(recommendations.keywords_to_add))
+            else:
+                st.markdown("*None suggested.*")
     
     # Real Job Search (requires SerpAPI)
     st.markdown("---")
@@ -700,32 +761,22 @@ if profile and (st.session_state.get("show_job_matcher") or st.session_state.get
     if job_results:
         st.markdown("### 🎯 Top Matching Jobs")
         for match in job_results:
-            with st.container():
+            with st.expander(f"**{match.posting.title}** at {match.posting.company_name} — {int(match.match_score * 100)}% match"):
                 col1, col2 = st.columns([3, 1])
                 with col1:
-                    st.markdown(f"**{match.posting.title}** at {match.posting.company_name}")
-                    st.caption(f"📍 {match.posting.location}")
+                    st.markdown(f"📍 **Location:** {match.posting.location}")
                 with col2:
                     match_pct = int(match.match_score * 100)
                     color = "🟢" if match_pct >= 70 else "🟡" if match_pct >= 50 else "🔴"
                     st.markdown(f"### {color} {match_pct}%")
                 
-                st.text_area(
-                    "Description",
-                    value=match.posting.description,
-                    height=100,
-                    disabled=True,
-                    key=f"job_{match.posting.title}_{match.posting.company_name}",
-                    label_visibility="collapsed",
-                )
+                st.info(match.posting.description)
                 
                 if match.posting.apply_link:
                     st.link_button("Apply Now →", match.posting.apply_link)
                 
                 if match.missing_skills:
-                    st.warning(f"📚 Skills to develop: {', '.join(match.missing_skills)}")
-                
-                st.markdown("---")
+                    st.warning(f"📚 **Skills to develop:** {', '.join(match.missing_skills)}")
         
         st.caption(f"SerpAPI quota remaining: {matcher.remaining_quota}")
 
